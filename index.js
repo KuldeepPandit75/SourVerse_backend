@@ -263,33 +263,26 @@ mongoose.connect(process.env.MONGODB_URI)
     res.status(404).json({ message: 'Route not found' });
   });
 
-const players = new Map();
-const stalls = [
-  { x: 200, y: 200 },
-  { x: 600, y: 200 },
-  { x: 200, y: 400 },
-  { x: 600, y: 400 },
-];
+const players = new Map(); // Store connected players
 
 io.on("connection", (socket) => {
-  console.log("a user connected");
+  console.log("A user connected:", socket.id);
 
   // Create a new player
   const player = {
     id: socket.id,
-    x: Math.random() * 800,
-    y: Math.random() * 600,
+    x: Math.random() * 800, // Random x position
+    y: Math.random() * 600, // Random y position
   };
+
+  // Add the player to our players map
   players.set(socket.id, player);
 
-  // Send the initial state (players and stalls) to the new player
-  socket.emit("currentState", {
-    players: Array.from(players.values()),
-    stalls: stalls
-  });
+  // Send the new player info to all connected clients
+  io.emit("newPlayer", player);
 
-  // Notify all other players about the new player
-  socket.broadcast.emit("newPlayer", player);
+  // Send the current players to the new player
+  socket.emit("currentPlayers", Array.from(players.values()));
 
   // Handle player movement
   socket.on("playerMovement", (movementData) => {
@@ -297,14 +290,14 @@ io.on("connection", (socket) => {
     if (player) {
       player.x = movementData.x;
       player.y = movementData.y;
-      // Emit the updated position to all other players
+      // Broadcast the movement to all other players
       socket.broadcast.emit("playerMoved", player);
     }
   });
 
   // Handle disconnection
   socket.on("disconnect", () => {
-    console.log("user disconnected");
+    console.log("User disconnected:", socket.id);
     players.delete(socket.id);
     io.emit("playerDisconnected", socket.id);
   });
