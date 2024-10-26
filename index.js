@@ -18,8 +18,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = 5000;
 const server = createServer(app);
-const io = new Server(server,{
-    connectionStateRecovery: {}
+const io = new Server(server, {
+  connectionStateRecovery: {},
+  cors: {
+    origin: "http://localhost:5173", // Your frontend URL
+    methods: ["GET", "POST"]
+  }
 });
 
 app.use(express.urlencoded({ extended: true }));
@@ -259,10 +263,53 @@ mongoose.connect(process.env.MONGODB_URI)
     res.status(404).json({ message: 'Route not found' });
   });
 
+const players = new Map();
+const stalls = [
+  { x: 200, y: 200 },
+  { x: 600, y: 200 },
+  { x: 200, y: 400 },
+  { x: 600, y: 400 },
+];
+
 io.on("connection", (socket) => {
-    console.log("a user connected");
+  console.log("a user connected");
+
+  // Create a new player
+  const player = {
+    id: socket.id,
+    x: Math.random() * 800,
+    y: Math.random() * 600,
+  };
+  players.set(socket.id, player);
+
+  // Send the initial state (players and stalls) to the new player
+  socket.emit("currentState", {
+    players: Array.from(players.values()),
+    stalls: stalls
+  });
+
+  // Notify all other players about the new player
+  socket.broadcast.emit("newPlayer", player);
+
+  // Handle player movement
+  socket.on("playerMovement", (movementData) => {
+    const player = players.get(socket.id);
+    if (player) {
+      player.x = movementData.x;
+      player.y = movementData.y;
+      // Emit the updated position to all other players
+      socket.broadcast.emit("playerMoved", player);
+    }
+  });
+
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    console.log("user disconnected");
+    players.delete(socket.id);
+    io.emit("playerDisconnected", socket.id);
+  });
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log("Server is running on port 3000");
 });
