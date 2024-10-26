@@ -21,7 +21,7 @@ const server = createServer(app);
 const io = new Server(server, {
   connectionStateRecovery: {},
   cors: {
-    origin: "https://final-sourverse.onrender.com", // Your frontend URL
+    origin: ["http://localhost:5173", "https://final-sourverse.onrender.com"], // Your frontend URL
     methods: ["GET", "POST"]
   }
 });
